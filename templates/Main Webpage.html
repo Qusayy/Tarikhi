@@ -46,14 +46,33 @@
             display: none;
         }
         .event {
-            flex: 0 0 calc(100% / 5);
-            box-sizing: border-box;
-            padding: 0.5rem;
-            margin: 0.25rem;
-            background-color: #e2e8f0;
-            color: #2d3748;
-            text-align: center;
+            flex: 0 0 auto;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin: 0.5rem 2rem; /* Increased horizontal space */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.3s;
+        }
 
+        .event:hover {
+            transform: scale(1.1);
+        }
+
+        .event.highlight {
+            border: 5px solid gold;
+            box-shadow: 0 0 20px 5px gold;
+        }   
+        .details {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #333;
         }
         .flex-1.p-5 {
             padding: 5px 15px;
@@ -161,27 +180,72 @@
         return new Date(year, month, day);
     }
     function performTarikhi(){
-        debugger;
-        var query = document.getElementById('Query').value;
-        var url = "/Tarikhi?query=" + query;
-        var eventsContainer = document.getElementById('eventsContainer');
+    var query = document.getElementById('Query').value;
+    var url = "/Tarikhi?query=" + query;
+    var eventsContainer = document.getElementById('eventsContainer');
 
-        fetch(url)
-            .then(function(response){
-                return response.json();
-            })
-            .then(function(data){
-                debugger;
-                data.sort(function(a, b) {
-                    // Parse dates and compare
-                    return parseDate(a.date) - parseDate(b.date);
-                });
-                eventsContainer.innerHTML = '';
-                data.forEach(function(item){         
-                    eventsContainer.innerHTML += '<div class="event" onclick="handleEventClick(this)" event-name="' + item['event'] + '" desc="' + item['description'] + '" date="'+ item['date'] +'" location="'+ item['location'] +'"">' + item['event'] + '</div>';
-                });
-            })
-    }
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            // Count occurrences of each event
+            let eventCounts = {};
+            data.forEach(item => {
+                if (!eventCounts[item.event]) eventCounts[item.event] = 0;
+                eventCounts[item.event]++;
+            });
+            
+            let repeatedOnly = Object.entries(eventCounts).filter(([_, count]) => count > 1);
+            let mostRepeated = null;
+            let maxCount = 0;
+
+            if (repeatedOnly.length > 0) {
+                maxCount = Math.max(...repeatedOnly.map(([_, count]) => count));
+                mostRepeated = repeatedOnly.find(([_, count]) => count === maxCount)[0];
+            }
+
+            // Sort by date
+            data.sort((a, b) => parseDate(a.date) - parseDate(b.date));
+
+            // Track unique events
+            let addedEvents = new Set();
+            eventsContainer.innerHTML = '';
+
+            data.forEach(item => {
+                if (!addedEvents.has(item.event)) {
+                    addedEvents.add(item.event);
+
+                    // Calculate gradient intensity based on repetition
+                    let count = eventCounts[item.event];
+                    let baseColor = [34, 197, 94]; // Tailwind green-500: rgb(34,197,94)
+                    let intensity = Math.min(1, 0.4 + (count * 0.15)); 
+                    let bgColor = `rgba(${baseColor[0]}, ${baseColor[1]}, ${baseColor[2]}, ${intensity})`;
+
+                    let eventDiv = document.createElement('div');
+                    eventDiv.className = 'event';
+                    if (item.event === mostRepeated) eventDiv.classList.add("highlight");
+                    eventDiv.style.background = `linear-gradient(135deg, ${bgColor}, rgb(${baseColor[0]}, ${baseColor[1]}, ${baseColor[2]}))`;
+                    eventDiv.setAttribute("event-name", item.event);
+                    eventDiv.setAttribute("desc", item.description);
+                    eventDiv.setAttribute("date", item.date);
+                    eventDiv.setAttribute("location", item.location);
+                    eventDiv.innerText = item.event;
+
+                    eventDiv.onclick = () => handleEventClick(eventDiv);
+
+                    eventsContainer.appendChild(eventDiv);
+                } else {
+                    // If already exists → scroll to it
+                    let existing = [...eventsContainer.children].find(e => e.getAttribute("event-name") === item.event);
+                    if (existing) {
+                        existing.scrollIntoView({ behavior: "smooth", inline: "center" });
+                        existing.style.transform = "scale(1.2)";
+                        setTimeout(() => existing.style.transform = "scale(1)", 600);
+                    }
+                }
+            });
+        });
+}
+
 
     function handleEventClick(element){
         debugger;
@@ -263,7 +327,7 @@
             window.location.href = 'contributeresource';
         });
     </script>
-   <script>
+<script>
     // Get the container and the arrow buttons by their IDs
     const eventsContainer = document.querySelector('.event-container');
     const buttonLeft = document.getElementById('scrollLeft');
@@ -280,7 +344,6 @@
                 break;
         }
     });
-    
 
     // Event listeners for button clicks
     buttonLeft.addEventListener('click', function() {

@@ -7,6 +7,7 @@ import numpy as np
 import pickle
 import os
 from transformers import pipeline 
+import re
 
 pipe = pipeline("translation", model="Helsinki-NLP/opus-mt-en-ar")
 
@@ -123,11 +124,19 @@ def tarikhi():
         for event in chunk[0].list_of_events:
             events.append(event)
     
+    for event in events:
+        # Remove anything that is not an Arabic letter or space from the event name, including symbols like ،
+        if 'event' in event:
+            event['event'] = re.sub(r'[^\u0621-\u064A\s]', '', event['event']).strip()
+    # Remove events where the event name is exactly 'حرب'
+    events = [event for event in events if event.get('event') != 'حرب']
+    
     return jsonify(events)
 
 @app.route('/translate', methods=['GET', 'POST'])
 def translate():
     text = request.args.get('text')
+    return jsonify(text)
     translated_text = pipe(">>ara<<"+text)[0]['translation_text']
     return jsonify(translated_text)
 
